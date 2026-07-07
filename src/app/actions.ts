@@ -4,6 +4,7 @@ import { pb, getCollectionName } from "@/lib/pocketbase";
 import { sendMail } from "@/lib/mailer";
 import {
   confirmationTemplate,
+  newLeadNotificationTemplate,
   statusUpdateTemplate,
   previewReadyTemplate,
 } from "@/lib/email-templates";
@@ -14,35 +15,50 @@ export async function submitLead(formData: FormData) {
   try {
     const record = await pb.collection(getCollectionName()).create(formData);
 
-    // Send confirmation email automatically
-    const email = formData.get("email") as string;
-    if (email) {
-      try {
-        await sendMail(
-          email,
+    const leadData = {
+      fullName: formData.get("fullName") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      businessName: formData.get("businessName") as string,
+      sector: formData.get("sector") as string,
+      services: formData.get("services") as string,
+      mainGoal: formData.get("mainGoal") as string,
+      brandColors: formData.get("brandColors") as string,
+      brandPersonality: formData.get("brandPersonality") as string,
+      desiredFont: formData.get("desiredFont") as string,
+      existingWebsite: (formData.get("existingWebsite") as string) || undefined,
+      socialLinks: (formData.get("socialLinks") as string) || undefined,
+      contentNotes: (formData.get("contentNotes") as string) || undefined,
+      additionalNotes: (formData.get("additionalNotes") as string) || undefined,
+    };
+
+    // Send confirmation and internal notification automatically.
+    // Don't fail the submission if one of the emails fails.
+    const emailTasks = [
+      sendMail(
+        "eugeniorenna92@gmail.com",
+        "Nuovo contatto dal form – Eulab",
+        newLeadNotificationTemplate({ ...leadData, recordId: record.id })
+      ),
+    ];
+
+    if (leadData.email) {
+      emailTasks.push(
+        sendMail(
+          leadData.email,
           "Richiesta ricevuta – Eulab Preview Gratuita",
-          confirmationTemplate({
-            fullName: formData.get("fullName") as string,
-            email,
-            phone: formData.get("phone") as string,
-            businessName: formData.get("businessName") as string,
-            sector: formData.get("sector") as string,
-            services: formData.get("services") as string,
-            mainGoal: formData.get("mainGoal") as string,
-            brandColors: formData.get("brandColors") as string,
-            brandPersonality: formData.get("brandPersonality") as string,
-            desiredFont: formData.get("desiredFont") as string,
-            existingWebsite: (formData.get("existingWebsite") as string) || undefined,
-            socialLinks: (formData.get("socialLinks") as string) || undefined,
-            contentNotes: (formData.get("contentNotes") as string) || undefined,
-            additionalNotes: (formData.get("additionalNotes") as string) || undefined,
-          })
-        );
-      } catch (mailError) {
-        console.error("Failed to send confirmation email:", mailError);
-        // Don't fail the submission if email fails
-      }
+          confirmationTemplate(leadData)
+        )
+      );
     }
+
+    const emailResults = await Promise.allSettled(emailTasks);
+    emailResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        const label = index === 0 ? "internal lead notification" : "confirmation email";
+        console.error(`Failed to send ${label}:`, result.reason);
+      }
+    });
 
     return { success: true };
   } catch (error: any) {

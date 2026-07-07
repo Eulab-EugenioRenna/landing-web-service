@@ -89,7 +89,7 @@ const statusColors: Record<string, { bg: string; color: string; label: string }>
 
 // ─── Template 1: Conferma ricezione dati ─────────────────────────────────────
 
-export function confirmationTemplate(data: {
+type LeadEmailData = {
   fullName: string;
   email: string;
   phone: string;
@@ -104,7 +104,9 @@ export function confirmationTemplate(data: {
   socialLinks?: string;
   contentNotes?: string;
   additionalNotes?: string;
-}) {
+};
+
+export function confirmationTemplate(data: LeadEmailData) {
   return `
 <!DOCTYPE html>
 <html lang="it">
@@ -193,7 +195,99 @@ export function confirmationTemplate(data: {
 </html>`;
 }
 
-// ─── Template 2: Notifica avanzamento stato ──────────────────────────────────
+// ─── Template 2: Notifica interna nuovo lead ────────────────────────────────
+
+export function newLeadNotificationTemplate(data: LeadEmailData & { recordId?: string }) {
+  return `
+<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="${baseStyle}">
+  <div style="padding: 24px;">
+    <div style="${containerStyle}">
+      <div style="${headerStyle}">
+        <h1 style="${headerTitle}">Nuovo contatto dal form ✨</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px;">
+          ${data.fullName} ha richiesto una preview gratuita.
+        </p>
+      </div>
+
+      <div style="${bodyStyle}">
+        <p style="font-size: 15px; color: #27272a; line-height: 1.6; margin: 0 0 24px;">
+          È arrivato un nuovo contatto dal form Eulab. Qui sotto trovi il riepilogo completo dei dati inseriti.
+        </p>
+
+        <div style="background: #fafafa; border-radius: 12px; padding: 20px; border: 1px solid #e4e4e7;">
+          ${data.recordId ? `
+          <span style="${labelStyle}">ID lead</span>
+          <span style="${valueStyle}">${data.recordId}</span>
+          ` : ""}
+
+          <span style="${labelStyle}">Nome e cognome</span>
+          <span style="${valueStyle}">${data.fullName}</span>
+
+          <span style="${labelStyle}">Email</span>
+          <span style="${valueStyle}">${data.email}</span>
+
+          <span style="${labelStyle}">Telefono</span>
+          <span style="${valueStyle}">${data.phone}</span>
+
+          <span style="${labelStyle}">Attività / brand</span>
+          <span style="${valueStyle}">${data.businessName}</span>
+
+          <span style="${labelStyle}">Settore</span>
+          <span style="${valueStyle}">${data.sector}</span>
+
+          ${data.existingWebsite ? `
+          <span style="${labelStyle}">Sito web</span>
+          <span style="${valueStyle}">${data.existingWebsite}</span>
+          ` : ""}
+
+          ${data.socialLinks ? `
+          <span style="${labelStyle}">Social</span>
+          <span style="${valueStyle}">${data.socialLinks}</span>
+          ` : ""}
+
+          <hr style="${dividerStyle}" />
+
+          <span style="${labelStyle}">Obiettivo principale</span>
+          <span style="${valueStyle}">${data.mainGoal}</span>
+
+          <span style="${labelStyle}">Servizi offerti</span>
+          <span style="${valueStyle}">${data.services}</span>
+
+          <span style="${labelStyle}">Colori brand</span>
+          <span style="${valueStyle}">${data.brandColors}</span>
+
+          <span style="${labelStyle}">Personalità brand</span>
+          <span style="${valueStyle}">${data.brandPersonality}</span>
+
+          <span style="${labelStyle}">Font / stile desiderato</span>
+          <span style="${valueStyle}">${data.desiredFont}</span>
+
+          ${data.contentNotes ? `
+          <hr style="${dividerStyle}" />
+          <span style="${labelStyle}">Testi o informazioni da includere</span>
+          <span style="${valueStyle}">${data.contentNotes}</span>
+          ` : ""}
+
+          ${data.additionalNotes ? `
+          <span style="${labelStyle}">Note aggiuntive</span>
+          <span style="${valueStyle}">${data.additionalNotes}</span>
+          ` : ""}
+        </div>
+      </div>
+
+      <div style="${footerStyle}">
+        <p style="margin: 0;">© ${new Date().getFullYear()} Eulab · Notifica interna</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template 3: Notifica avanzamento stato ──────────────────────────────────
 
 export function statusUpdateTemplate(data: {
   fullName: string;
@@ -254,7 +348,7 @@ export function statusUpdateTemplate(data: {
 </html>`;
 }
 
-// ─── Template 3: Consegna preview con link ───────────────────────────────────
+// ─── Template 4: Consegna preview con link ───────────────────────────────────
 
 export function previewReadyTemplate(data: {
   fullName: string;
