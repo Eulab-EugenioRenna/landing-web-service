@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import PocketBase from "pocketbase";
 import { Eye, Search, Filter } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; classes: string }> = {
@@ -15,12 +16,101 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   rejected: { label: "Rifiutato", classes: "bg-red-100 text-red-800 border-red-200" },
 };
 
-export default function LeadTableClient({ records }: { records: any[] }) {
+export type LeadRecord = {
+  id: string;
+  collectionId?: string;
+  created: string;
+  status: string;
+  businessName?: string;
+  fullName?: string;
+  email?: string;
+  sector?: string;
+  [key: string]: unknown;
+};
+
+type LeadSubscriptionEvent = {
+  action: string;
+  record: LeadRecord;
+};
+
+function sortByCreatedDesc(records: LeadRecord[]) {
+  return [...records].sort(
+    (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+  );
+}
+
+export default function LeadTableClient({
+  records,
+  pocketbaseUrl,
+  collectionName,
+}: {
+  records: LeadRecord[];
+  pocketbaseUrl: string;
+  collectionName: string;
+}) {
+  const [liveRecords, setLiveRecords] = useState(() => sortByCreatedDesc(records));
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [realtimeError, setRealtimeError] = useState(() =>
+    pocketbaseUrl ? "" : "Realtime non configurato: manca l'URL di PocketBase."
+  );
+
+  useEffect(() => {
+    if (!pocketbaseUrl) {
+      return;
+    }
+
+    let isMounted = true;
+    let unsubscribe: (() => Promise<void>) | undefined;
+    const client = new PocketBase(pocketbaseUrl);
+    client.autoCancellation(false);
+
+    client
+      .collection(collectionName)
+      .subscribe<LeadRecord>("*", (event: LeadSubscriptionEvent) => {
+        if (!isMounted) return;
+
+        setRealtimeError("");
+        setLiveRecords((current) => {
+          const incoming = event.record;
+          if (!incoming?.id) return current;
+
+          if (event.action === "delete") {
+            return current.filter((record) => record.id !== incoming.id);
+          }
+
+          return sortByCreatedDesc([
+            incoming,
+            ...current.filter((record) => record.id !== incoming.id),
+          ]);
+        });
+      })
+      .then((unsubscribeFn) => {
+        if (!isMounted) {
+          void unsubscribeFn();
+          return;
+        }
+        unsubscribe = unsubscribeFn;
+      })
+      .catch((error) => {
+        console.error("PocketBase realtime error:", error);
+        if (isMounted) {
+          setRealtimeError("Realtime non disponibile. Aggiorna la pagina per vedere gli ultimi dati.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        void unsubscribe();
+      } else {
+        void client.collection(collectionName).unsubscribe("*").catch(() => undefined);
+      }
+    };
+  }, [collectionName, pocketbaseUrl]);
 
   const filtered = useMemo(() => {
-    return records.filter((record) => {
+    return liveRecords.filter((record) => {
       // Status filter
       if (statusFilter !== "all" && record.status !== statusFilter) return false;
 
@@ -41,7 +131,7 @@ export default function LeadTableClient({ records }: { records: any[] }) {
 
       return true;
     });
-  }, [records, searchQuery, statusFilter]);
+  }, [liveRecords, searchQuery, statusFilter]);
 
   return (
     <div>
@@ -72,15 +162,23 @@ export default function LeadTableClient({ records }: { records: any[] }) {
         </div>
       </div>
 
+      {realtimeError && (
+        <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-200">
+          {realtimeError}
+        </div>
+      )}
+
       {/* Results count */}
       <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border bg-muted/10">
-        {filtered.length} risultat{filtered.length === 1 ? "o" : "i"} su {records.length}
+        {filtered.length} risultat{filtered.length === 1 ? "o" : "i"} su {liveRecords.length}
       </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="p-8 text-center text-muted-foreground">
-          Nessun risultato trovato per i filtri selezionati.
+          {liveRecords.length === 0
+            ? "Nessuna richiesta ricevuta finora."
+            : "Nessun risultato trovato per i filtri selezionati."}
         </div>
       ) : (
         <div className="overflow-x-auto">
