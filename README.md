@@ -1,5 +1,33 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Configurazione progetto
+
+Variabili ambiente principali:
+
+```bash
+POCKETBASE_URL=https://...
+NEXT_PUBLIC_POCKETBASE_URL=https://...
+POCKETBASE_COLLECTION=eulab_web_lead
+APP_URL=https://tuo-dominio.it
+NEXT_PUBLIC_APP_URL=https://tuo-dominio.it
+ADMIN_EMAIL=admin@esempio.it
+SMTP_HOST=smtp...
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_FROM=Eulab <noreply@esempio.it>
+```
+
+Per le funzioni cliente aggiungere alla collection PocketBase due campi JSON:
+
+- `clientChat`: contiene token invito e messaggi chat tra admin e cliente.
+- `writtenReview`: contiene token invito, recensione, stato blocco/sblocco e richiesta modifica.
+
+L'admin può inviare le email da `/admin/[id]`. I link pubblici generati usano `APP_URL` / `NEXT_PUBLIC_APP_URL` e puntano a:
+
+- `/cliente/[id]/note?token=...`
+- `/cliente/[id]/recensione?token=...`
+
 ## Getting Started
 
 First, run the development server:

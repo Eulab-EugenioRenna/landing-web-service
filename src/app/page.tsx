@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, CheckCircle2, Clock, XCircle, Rocket, Target, Users, Zap, Briefcase, Info } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, XCircle, Rocket, Target, Users, Zap, Briefcase } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
 
 export default function Home() {
@@ -145,7 +145,7 @@ export default function Home() {
                     "Struttura della pagina ottimizzata",
                     "Copy iniziale di base",
                     "Proposta visiva coerente con il brand",
-                    "Call to action orientata all'obiettivo",
+                    "Call to action orientata all’obiettivo",
                     "Prima anteprima consultabile online"
                   ].map((text, i) => (
                     <li key={i} className="flex items-center gap-4 text-lg font-medium">

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState, type ReactNode } from "react";
+import { useForm, type FieldError } from "react-hook-form";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { submitLead } from "@/app/actions";
 
-type FormData = {
+type LeadFormData = {
   fullName: string;
   email: string;
   phone: string;
@@ -25,18 +25,41 @@ type FormData = {
   consentPreviewTerms: boolean;
 };
 
+type InputWrapperProps = {
+  label: string;
+  error?: FieldError;
+  children: ReactNode;
+  required?: boolean;
+};
+
+function InputWrapper({ label, error, children, required }: InputWrapperProps) {
+  return (
+    <div className="flex flex-col gap-1.5 mb-5">
+      <label className="text-sm font-semibold text-foreground">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+      {error && <span className="text-xs text-red-500 mt-1">{error.message}</span>}
+    </div>
+  );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Si è verificato un errore durante l’invio. Riprova.";
+}
+
 export default function LeadForm() {
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<FormData>();
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<LeadFormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: LeadFormData) => {
     setIsSubmitting(true);
     setSubmitError("");
 
     try {
-      const formData = new FormData();
+      const formData = new globalThis.FormData();
       
       // Append all text fields
       Object.entries(data).forEach(([key, value]) => {
@@ -61,9 +84,9 @@ export default function LeadForm() {
       
       setIsSuccess(true);
       reset();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Submission error:", error);
-      setSubmitError(error.message || "Si è verificato un errore durante l'invio. Riprova.");
+      setSubmitError(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,21 +104,11 @@ export default function LeadForm() {
           onClick={() => setIsSuccess(false)}
           className="mt-8 text-brand-600 font-medium hover:underline"
         >
-          Invia un'altra richiesta
+          Invia un’altra richiesta
         </button>
       </div>
     );
   }
-
-  const InputWrapper = ({ label, error, children, required }: any) => (
-    <div className="flex flex-col gap-1.5 mb-5">
-      <label className="text-sm font-semibold text-foreground">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {children}
-      {error && <span className="text-xs text-red-500 mt-1">{error.message}</span>}
-    </div>
-  );
 
   const inputClasses = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow disabled:opacity-50";
 
@@ -140,9 +153,9 @@ export default function LeadForm() {
           <select {...register("mainGoal", { required: "Seleziona un obiettivo" })} className={inputClasses}>
             <option value="">Seleziona...</option>
             <option value="ricevere contatti">Ricevere contatti</option>
-            <option value="presentare l’attività">Presentare l'attività</option>
+            <option value="presentare l’attività">Presentare l’attività</option>
             <option value="vendere un servizio">Vendere un servizio</option>
-            <option value="promuovere un’offerta">Promuovere un'offerta</option>
+            <option value="promuovere un’offerta">Promuovere un’offerta</option>
             <option value="prenotazioni">Prenotazioni</option>
             <option value="portfolio">Portfolio</option>
             <option value="altro">Altro</option>
@@ -182,7 +195,7 @@ export default function LeadForm() {
 
       <div className="mt-8 space-y-4 pt-6 border-t border-border">
         <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" {...register("consentPrivacy", { required: "Devi accettare l'informativa sulla privacy" })} className="mt-1 w-5 h-5 rounded border-border text-brand-600 focus:ring-brand-500" />
+          <input type="checkbox" {...register("consentPrivacy", { required: "Devi accettare l’informativa sulla privacy" })} className="mt-1 w-5 h-5 rounded border-border text-brand-600 focus:ring-brand-500" />
           <span className="text-sm text-muted-foreground">
             Acconsento al trattamento dei miei dati personali per la gestione della richiesta. {errors.consentPrivacy && <span className="text-red-500 block">{errors.consentPrivacy.message}</span>}
           </span>

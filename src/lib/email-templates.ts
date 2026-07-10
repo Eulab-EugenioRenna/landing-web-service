@@ -407,3 +407,103 @@ export function previewReadyTemplate(data: {
 </body>
 </html>`;
 }
+
+// ─── Template 5: Invito note cliente in stile chat ───────────────────────────
+
+export function clientChatInviteTemplate(data: {
+  fullName: string;
+  businessName: string;
+  chatUrl: string;
+}) {
+  return `
+<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="${baseStyle}">
+  <div style="padding: 24px;">
+    <div style="${containerStyle}">
+      <div style="${headerStyle}">
+        <h1 style="${headerTitle}">Lasciaci le tue note 💬</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px;">
+          ${data.businessName}
+        </p>
+      </div>
+
+      <div style="${bodyStyle}">
+        <p style="font-size: 15px; color: #27272a; line-height: 1.6; margin: 0 0 24px;">
+          Ciao <strong>${data.fullName}</strong>,<br><br>
+          abbiamo preparato uno spazio semplice in stile chat dove puoi lasciarci note, preferenze,
+          richieste o chiarimenti per la tua landing. Useremo questi messaggi per seguire meglio il progetto.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${data.chatUrl}" target="_blank" style="${btnStyle}">
+            Apri la chat note →
+          </a>
+        </div>
+
+        <p style="font-size: 13px; color: #71717a; margin: 24px 0 0; line-height: 1.6;">
+          Il link è personale: non condividerlo con persone esterne al progetto.
+        </p>
+      </div>
+
+      <div style="${footerStyle}">
+        <p style="margin: 0;">© ${new Date().getFullYear()} Eulab · Tutti i diritti riservati</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template 6: Invito recensione scritta ──────────────────────────────────
+
+export function reviewInviteTemplate(data: {
+  fullName: string;
+  businessName: string;
+  reviewUrl: string;
+}) {
+  return `
+<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="${baseStyle}">
+  <div style="padding: 24px;">
+    <div style="${containerStyle}">
+      <div style="${headerStyle}">
+        <h1 style="${headerTitle}">Lascia la tua recensione ✍️</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px;">
+          ${data.businessName}
+        </p>
+      </div>
+
+      <div style="${bodyStyle}">
+        <p style="font-size: 15px; color: #27272a; line-height: 1.6; margin: 0 0 24px;">
+          Ciao <strong>${data.fullName}</strong>,<br><br>
+          se ti va, puoi lasciarci una recensione scritta sul lavoro svolto per <strong>${data.businessName}</strong>.
+          La recensione può essere inviata una sola volta e, dopo l'invio, non sarà modificabile direttamente.
+        </p>
+
+        <div style="background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 12px; padding: 16px; font-size: 14px; line-height: 1.6;">
+          Se dopo l'invio vuoi correggere o aggiornare il testo, potrai richiedere lo sblocco: sarà l'admin Eulab ad autorizzare la modifica.
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${data.reviewUrl}" target="_blank" style="${btnStyle}">
+            Scrivi la recensione →
+          </a>
+        </div>
+
+        <p style="font-size: 13px; color: #71717a; margin: 24px 0 0; line-height: 1.6;">
+          Il link è personale: non condividerlo con persone esterne al progetto.
+        </p>
+      </div>
+
+      <div style="${footerStyle}">
+        <p style="margin: 0;">© ${new Date().getFullYear()} Eulab · Tutti i diritti riservati</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}

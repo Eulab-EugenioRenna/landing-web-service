@@ -2,12 +2,51 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Sparkles, Loader2, RefreshCcw, Mail, ExternalLink, CheckCircle2 } from "lucide-react";
-import { updateLead, sendStatusEmail, sendPreviewEmail } from "@/app/actions";
+import { Copy, Sparkles, Loader2, RefreshCcw, Mail, ExternalLink, CheckCircle2, MessageCircle, Send, Star, Unlock, Lock } from "lucide-react";
+import {
+  updateLead,
+  sendStatusEmail,
+  sendPreviewEmail,
+  sendClientChatInviteEmail,
+  addAdminChatMessage,
+  sendReviewInviteEmail,
+  setReviewEditUnlock,
+  type ClientChatData,
+  type WrittenReviewData,
+} from "@/app/actions";
 
-export default function ClientDetails({ record, pocketbaseUrl }: { record: any, pocketbaseUrl: string }) {
+type LeadDetailsRecord = {
+  id: string;
+  collectionId?: string;
+  status?: string;
+  internalNotes?: string;
+  aiPrompt?: string;
+  previewUrl?: string;
+  logoFile?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  businessName?: string;
+  sector?: string;
+  mainGoal?: string;
+  existingWebsite?: string;
+  socialLinks?: string;
+  services?: string;
+  contentNotes?: string;
+  brandColors?: string;
+  brandPersonality?: string;
+  desiredFont?: string;
+  clientChat?: ClientChatData;
+  writtenReview?: WrittenReviewData;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+export default function ClientDetails({ record, pocketbaseUrl }: { record: LeadDetailsRecord, pocketbaseUrl: string }) {
   const router = useRouter();
-  const [status, setStatus] = useState(record.status);
+  const [status, setStatus] = useState(record.status || "new");
   const [internalNotes, setInternalNotes] = useState(record.internalNotes || "");
   const [aiPrompt, setAiPrompt] = useState(record.aiPrompt || "");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -20,6 +59,17 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
   const [previewEmailSent, setPreviewEmailSent] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(record.previewUrl || "");
   const [emailError, setEmailError] = useState("");
+
+  // Client portal state
+  const [clientChat, setClientChat] = useState<ClientChatData>(record.clientChat || { messages: [] });
+  const [writtenReview, setWrittenReview] = useState<WrittenReviewData>(record.writtenReview || {});
+  const [adminChatMessage, setAdminChatMessage] = useState("");
+  const [isSendingChatInvite, setIsSendingChatInvite] = useState(false);
+  const [isAddingAdminMessage, setIsAddingAdminMessage] = useState(false);
+  const [isSendingReviewInvite, setIsSendingReviewInvite] = useState(false);
+  const [isTogglingReviewUnlock, setIsTogglingReviewUnlock] = useState(false);
+  const [portalMessage, setPortalMessage] = useState("");
+  const [portalError, setPortalError] = useState("");
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -73,7 +123,7 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
 
       if (!res.ok) throw new Error("Errore API");
 
-      const data = await res.json();
+      const data = (await res.json()) as { prompt: string };
       setAiPrompt(data.prompt);
 
       // Auto-save generated prompt
@@ -98,12 +148,12 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
     setEmailError("");
     setStatusEmailSent(false);
     try {
-      const result = await sendStatusEmail(record.email, record.fullName, record.businessName, status);
+      const result = await sendStatusEmail(record.email || "", record.fullName || "", record.businessName || "", status);
       if (!result.success) throw new Error(result.error);
       setStatusEmailSent(true);
       setTimeout(() => setStatusEmailSent(false), 5000);
-    } catch (e: any) {
-      setEmailError(e.message || "Errore invio email stato");
+    } catch (e: unknown) {
+      setEmailError(getErrorMessage(e, "Errore invio email stato"));
     } finally {
       setIsSendingStatus(false);
     }
@@ -111,7 +161,7 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
 
   const handleSendPreviewEmail = async () => {
     if (!previewUrl.trim()) {
-      setEmailError("Inserisci l'URL della preview prima di inviare.");
+      setEmailError("Inserisci l’URL della preview prima di inviare.");
       return;
     }
     setIsSendingPreview(true);
@@ -119,19 +169,88 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
     setPreviewEmailSent(false);
     try {
       const result = await sendPreviewEmail(
-        record.email,
-        record.fullName,
-        record.businessName,
+        record.email || "",
+        record.fullName || "",
+        record.businessName || "",
         previewUrl.trim(),
         record.id
       );
       if (!result.success) throw new Error(result.error);
       setPreviewEmailSent(true);
       setTimeout(() => setPreviewEmailSent(false), 5000);
-    } catch (e: any) {
-      setEmailError(e.message || "Errore invio email preview");
+    } catch (e: unknown) {
+      setEmailError(getErrorMessage(e, "Errore invio email preview"));
     } finally {
       setIsSendingPreview(false);
+    }
+  };
+
+  const handleSendChatInvite = async () => {
+    setIsSendingChatInvite(true);
+    setPortalError("");
+    setPortalMessage("");
+    try {
+      const result = await sendClientChatInviteEmail(record.id);
+      if (!result.success) throw new Error(result.error);
+      if (result.clientChat) setClientChat(result.clientChat);
+      setPortalMessage("Email per le note inviata al cliente.");
+      router.refresh();
+    } catch (e: unknown) {
+      setPortalError(getErrorMessage(e, "Errore invio email note"));
+    } finally {
+      setIsSendingChatInvite(false);
+    }
+  };
+
+  const handleAddAdminChatMessage = async () => {
+    setIsAddingAdminMessage(true);
+    setPortalError("");
+    setPortalMessage("");
+    try {
+      const result = await addAdminChatMessage(record.id, adminChatMessage);
+      if (!result.success) throw new Error(result.error);
+      if (result.clientChat) setClientChat(result.clientChat);
+      setAdminChatMessage("");
+      setPortalMessage("Messaggio admin salvato nella chat note.");
+      router.refresh();
+    } catch (e: unknown) {
+      setPortalError(getErrorMessage(e, "Errore salvataggio messaggio"));
+    } finally {
+      setIsAddingAdminMessage(false);
+    }
+  };
+
+  const handleSendReviewInvite = async () => {
+    setIsSendingReviewInvite(true);
+    setPortalError("");
+    setPortalMessage("");
+    try {
+      const result = await sendReviewInviteEmail(record.id);
+      if (!result.success) throw new Error(result.error);
+      if (result.writtenReview) setWrittenReview(result.writtenReview);
+      setPortalMessage("Email recensione inviata al cliente.");
+      router.refresh();
+    } catch (e: unknown) {
+      setPortalError(getErrorMessage(e, "Errore invio email recensione"));
+    } finally {
+      setIsSendingReviewInvite(false);
+    }
+  };
+
+  const handleToggleReviewUnlock = async (unlocked: boolean) => {
+    setIsTogglingReviewUnlock(true);
+    setPortalError("");
+    setPortalMessage("");
+    try {
+      const result = await setReviewEditUnlock(record.id, unlocked);
+      if (!result.success) throw new Error(result.error);
+      if (result.writtenReview) setWrittenReview(result.writtenReview);
+      setPortalMessage(unlocked ? "Recensione sbloccata per la modifica." : "Modifica recensione bloccata.");
+      router.refresh();
+    } catch (e: unknown) {
+      setPortalError(getErrorMessage(e, "Errore aggiornamento sblocco recensione"));
+    } finally {
+      setIsTogglingReviewUnlock(false);
     }
   };
 
@@ -149,6 +268,10 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
     converted: "Convertito",
     rejected: "Rifiutato",
   };
+
+  const chatMessages = clientChat.messages || [];
+  const reviewSubmitted = Boolean(writtenReview.text && writtenReview.submittedAt);
+  const reviewEditRequested = Boolean(writtenReview.editRequestedAt);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -293,7 +416,7 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
           <div>
             <p className="font-semibold text-sm">Consegna preview con link</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Inserisci l'URL del dominio dove è pubblicata la preview e invia la mail al cliente.
+              Inserisci l’URL del dominio dove è pubblicata la preview e invia la mail al cliente.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -318,6 +441,148 @@ export default function ClientDetails({ record, pocketbaseUrl }: { record: any, 
           </div>
         </div>
       </div>
+
+      {/* ─── Portale Cliente: note chat + recensione ─────────────────────── */}
+      <div className="grid lg:grid-cols-2 gap-8">
+        <div className="bg-card p-6 rounded-2xl border border-border space-y-5 shadow-sm border-t-4 border-t-teal-500">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2 text-teal-700 dark:text-teal-400">
+                <MessageCircle className="w-5 h-5" /> Note cliente in chat
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Le note sono salvate nel campo JSON <code>clientChat</code> di PocketBase.
+              </p>
+            </div>
+            <button
+              onClick={handleSendChatInvite}
+              disabled={isSendingChatInvite}
+              className="px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isSendingChatInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              Invia mail note
+            </button>
+          </div>
+
+          <div className="h-72 overflow-y-auto bg-muted/30 rounded-2xl border border-border p-4 space-y-3">
+            {chatMessages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-10">
+                Nessun messaggio ancora. Invia la mail al cliente o aggiungi una nota admin.
+              </p>
+            ) : (
+              chatMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.author === "admin" ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${message.author === "admin" ? "bg-brand-600 text-white" : "bg-white dark:bg-zinc-900 border border-border"}`}>
+                    <p className="text-[11px] opacity-70 mb-1">
+                      {message.author === "admin" ? "Eulab" : record.fullName || "Cliente"} · {new Date(message.createdAt).toLocaleString("it-IT")}
+                    </p>
+                    <p className="whitespace-pre-wrap">{message.body}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <textarea
+              value={adminChatMessage}
+              onChange={(e) => setAdminChatMessage(e.target.value)}
+              placeholder="Scrivi una risposta o nota admin..."
+              className="min-h-20 flex-1 p-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <button
+              onClick={handleAddAdminChatMessage}
+              disabled={isAddingAdminMessage || !adminChatMessage.trim()}
+              className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isAddingAdminMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Salva
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-card p-6 rounded-2xl border border-border space-y-5 shadow-sm border-t-4 border-t-amber-500">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <Star className="w-5 h-5" /> Recensione scritta
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Una sola scrittura. Modifiche solo dopo sblocco admin nel JSON <code>writtenReview</code>.
+              </p>
+            </div>
+            <button
+              onClick={handleSendReviewInvite}
+              disabled={isSendingReviewInvite}
+              className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isSendingReviewInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              Invia mail recensione
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3 min-h-72">
+            {reviewSubmitted ? (
+              <>
+                <div className="flex flex-wrap gap-2 items-center justify-between">
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-800 border border-green-200 text-xs font-semibold">
+                    <CheckCircle2 className="w-4 h-4" /> Recensione inviata
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {writtenReview.submittedAt ? new Date(writtenReview.submittedAt).toLocaleString("it-IT") : ""}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-zinc-900 rounded-xl border border-border p-4">
+                  <p className="text-xs text-muted-foreground mb-2">Autore: {writtenReview.authorName || record.fullName || "Cliente"}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{writtenReview.text}</p>
+                </div>
+                {reviewEditRequested && (
+                  <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+                    <p className="font-semibold">Il cliente ha richiesto lo sblocco.</p>
+                    <p className="mt-1">{writtenReview.editRequestReason}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">
+                Nessuna recensione ricevuta. Invia la mail per far scrivere il cliente.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => handleToggleReviewUnlock(true)}
+              disabled={isTogglingReviewUnlock || !reviewSubmitted}
+              className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isTogglingReviewUnlock ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+              Sblocca modifica
+            </button>
+            <button
+              onClick={() => handleToggleReviewUnlock(false)}
+              disabled={isTogglingReviewUnlock || !reviewSubmitted}
+              className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+            >
+              <Lock className="w-4 h-4" /> Blocca modifica
+            </button>
+            {writtenReview.editUnlocked && (
+              <span className="inline-flex items-center px-3 py-2 rounded-xl bg-green-50 text-green-700 border border-green-200 text-xs font-semibold">
+                Modifica attualmente autorizzata
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {(portalMessage || portalError) && (
+        <div className={`p-3 rounded-xl text-sm border ${portalError ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}`}>
+          {portalError || portalMessage}
+        </div>
+      )}
 
       {/* AI Prompt Section */}
       <div className="bg-card p-6 rounded-2xl border border-border space-y-4 shadow-sm border-t-4 border-t-purple-500">
